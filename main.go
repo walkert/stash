@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/howeyc/gopass"
 	"github.com/mitchellh/go-homedir"
+	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"github.com/walkert/cipher"
 	pb "github.com/walkert/gatekeeper/gateproto"
@@ -42,6 +42,7 @@ var (
 	mux             sync.Mutex
 	passwordSet     bool
 	salt            string
+	verbose         bool
 	watchDogRunning bool
 )
 
@@ -87,8 +88,7 @@ func decryptPass() []byte {
 	defer mux.Unlock()
 	data, err := cipher.DecryptBytes(masterPassword, salt, encPass)
 	if err != nil {
-		fmt.Println("can't decrypt", err)
-		return []byte{}
+		log.Fatal("unable to decrypt password data: %v\n")
 	}
 	return data
 }
@@ -102,6 +102,17 @@ func setConfig() {
 	if keyFile == "" {
 		keyFile = path.Join(dir, keyName)
 	}
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:          true,
+		TimestampFormat:        "2006-01-02 15:04:05",
+		DisableLevelTruncation: true,
+	},
+	)
 }
 
 func writeConfig(data string) {
@@ -191,6 +202,7 @@ func main() {
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
 	server := flag.Bool("server", false, "run in server mode")
 	set := flag.Bool("set", false, "set the password")
+	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
 	setConfig()
 	if *asClient {
@@ -233,7 +245,7 @@ func main() {
 			grpc.UnaryInterceptor(AuthInterceptor),
 		)
 		pb.RegisterVaultServer(s, &vault{})
-		fmt.Printf("grpc server listening on: %d\n", port)
+		log.Debugf("grpc server listening on: %d\n", port)
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("unable to server: %v\n", err)
 		}
