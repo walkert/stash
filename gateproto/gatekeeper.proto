@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package gateproto;
+
+message Payload {
+    bytes password = 1;
+    string auth = 2;
+}
+
+message Void {}
+
+service Vault {
+    rpc Get(Void) returns(Payload) {}
+    rpc Set(Payload) returns(Void) {}
+}
