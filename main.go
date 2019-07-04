@@ -17,21 +17,27 @@ import (
 	"github.com/walkert/cipher"
 	pb "github.com/walkert/gatekeeper/gateproto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
 	port     = 2002
+	certName = ".gkeeper.cert.pem"
+	keyName  = ".gkeeper.key.pem"
 	confName = ".gkeeper"
 )
 
 var (
-	auth           string
-	client         pb.VaultClient
-	configFile     string
-	encPass        string
-	masterPassword []byte
-	mux            sync.Mutex
-	salt           string
+	auth            string
+	certFile        string
+	client          pb.VaultClient
+	configFile      string
+	encPass         string
+	keyFile         string
+	masterPassword  []byte
+	mux             sync.Mutex
+	salt            string
+	watchDogRunning bool
 )
 
 type vault struct{}
@@ -42,7 +48,10 @@ func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
 
 func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) {
 	encryptPass(payload.GetPassword())
-	go watchDog()
+	if !watchDogRunning {
+		go watchDog()
+		watchDogRunning = true
+	}
 	return &pb.Void{}, nil
 }
 
@@ -79,31 +88,15 @@ func decryptPass() []byte {
 	return data
 }
 
-func mytest() {
-	salt := "test"
-	pass := "somepassword"
-	mypass := "TESTme"
-	data, err := cipher.EncryptBytes([]byte(mypass), salt, pass)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Data before enc:", data)
-	out, err := cipher.DecryptBytes(data, salt, pass)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Data after enc:", data)
-	fmt.Println("1:", string(out))
-	out, err = cipher.DecryptBytes(data, salt, pass)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("2:", string(out))
-}
-
 func setConfig() {
 	dir, _ := homedir.Dir()
 	configFile = path.Join(dir, confName)
+	if certFile == "" {
+		certFile = path.Join(dir, certName)
+	}
+	if keyFile == "" {
+		keyFile = path.Join(dir, keyName)
+	}
 }
 
 func writeConfig(data string) {
@@ -149,8 +142,6 @@ func getPassword(c pb.VaultClient) {
 	configString := readConfig()
 	salt := configString[:len(configString)/2]
 	encPass := configString[len(configString)/2:]
-	fmt.Println("using salt, pass:", salt, encPass)
-	fmt.Println("Got bytes:", result.GetPassword())
 	password, err := cipher.DecryptBytes(result.GetPassword(), salt, encPass)
 	if err != nil {
 		log.Fatal(err)
@@ -160,13 +151,19 @@ func getPassword(c pb.VaultClient) {
 
 func main() {
 	asClient := flag.Bool("client", false, "run in client mode")
+	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
 	get := flag.Bool("get", false, "get data")
+	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
 	server := flag.Bool("server", false, "run in server mode")
 	set := flag.Bool("set", false, "set the password")
 	flag.Parse()
 	setConfig()
 	if *asClient {
-		conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithInsecure())
+		creds, err := credentials.NewClientTLSFromFile(certFile, "")
+		if err != nil {
+			log.Fatalf("unable to set tls: %v\n", err)
+		}
+		conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithTransportCredentials(creds))
 		if err != nil {
 			log.Fatalf("did not connect: %v\n", err)
 		}
@@ -177,18 +174,27 @@ func main() {
 		}
 		if *set {
 			data := readPasswordFromUser()
-			client.Set(context.Background(), &pb.Payload{Password: data, Auth: ""})
+			_, err := client.Set(context.Background(), &pb.Payload{Password: data, Auth: ""})
+			if err != nil {
+				log.Fatalf("unable to set password: %v\n", err)
+			}
 		}
 	}
 
 	if *server {
 		salt = cipher.RandomString(12)
 		encPass = cipher.RandomString(32)
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			log.Fatalf("unable to set tls: %v\n", err)
+		}
 		lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 		if err != nil {
 			log.Fatalf("failed to listen: %v\n", err)
 		}
-		s := grpc.NewServer()
+		s := grpc.NewServer(
+			grpc.Creds(creds),
+		)
 		pb.RegisterVaultServer(s, &vault{})
 		fmt.Printf("grpc server listening on: %d\n", port)
 		if err := s.Serve(lis); err != nil {
