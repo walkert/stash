@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,7 +18,9 @@ import (
 	"github.com/walkert/cipher"
 	pb "github.com/walkert/gatekeeper/gateproto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -31,11 +34,13 @@ var (
 	auth            string
 	certFile        string
 	client          pb.VaultClient
+	clientAuth      string
 	configFile      string
 	encPass         string
 	keyFile         string
 	masterPassword  []byte
 	mux             sync.Mutex
+	passwordSet     bool
 	salt            string
 	watchDogRunning bool
 )
@@ -135,7 +140,8 @@ func readPasswordFromUser() []byte {
 }
 
 func getPassword(c pb.VaultClient) {
-	result, err := c.Get(context.Background(), &pb.Void{})
+	ctx := getMetaContext()
+	result, err := c.Get(ctx, &pb.Void{})
 	if err != nil {
 		log.Fatalf("unable to GET: %v\n", err)
 	}
@@ -147,6 +153,35 @@ func getPassword(c pb.VaultClient) {
 		log.Fatal(err)
 	}
 	fmt.Println("Password:", string(password))
+}
+
+func getMetaContext() context.Context {
+	data := readConfig()
+	salt := data[:len(data)/2]
+	auth := base64.StdEncoding.EncodeToString([]byte(salt))
+	md := metadata.Pairs("auth", auth)
+	return metadata.NewOutgoingContext(context.Background(), md)
+}
+
+func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, grpc.Errorf(codes.Unauthenticated, "missing context header")
+	}
+	if len(meta["auth"]) != 1 {
+		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
+	}
+	value := meta["auth"][0]
+	if passwordSet {
+		if value != clientAuth {
+			return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
+		}
+	}
+	if info.FullMethod == "/gateproto.Vault/Set" {
+		clientAuth = value
+		passwordSet = true
+	}
+	return handler(ctx, req)
 }
 
 func main() {
@@ -174,7 +209,8 @@ func main() {
 		}
 		if *set {
 			data := readPasswordFromUser()
-			_, err := client.Set(context.Background(), &pb.Payload{Password: data, Auth: ""})
+			ctx := getMetaContext()
+			_, err := client.Set(ctx, &pb.Payload{Password: data, Auth: ""})
 			if err != nil {
 				log.Fatalf("unable to set password: %v\n", err)
 			}
@@ -194,6 +230,7 @@ func main() {
 		}
 		s := grpc.NewServer(
 			grpc.Creds(creds),
+			grpc.UnaryInterceptor(AuthInterceptor),
 		)
 		pb.RegisterVaultServer(s, &vault{})
 		fmt.Printf("grpc server listening on: %d\n", port)
