@@ -69,7 +69,7 @@ func decryptPass() []byte {
 	defer mux.Unlock()
 	data, err := cipher.DecryptBytes(masterPassword, salt, encPass)
 	if err != nil {
-		log.Fatalf("unable to decrypt password data: %v\n")
+		log.Fatalf("unable to decrypt password data: %v\n", err)
 	}
 	return data
 }
@@ -96,18 +96,19 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 }
 
 func Start(port int, certFile, keyFile string) {
-	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
-	if err != nil {
-		log.Fatalf("unable to set tls: %v\n", err)
+	options := []grpc.ServerOption{grpc.UnaryInterceptor(AuthInterceptor)}
+	if certFile != "" && keyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			log.Fatalf("unable to set tls: %v\n", err)
+		}
+		options = append(options, grpc.Creds(creds))
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v\n", err)
 	}
-	s := grpc.NewServer(
-		grpc.Creds(creds),
-		grpc.UnaryInterceptor(AuthInterceptor),
-	)
+	s := grpc.NewServer(options...)
 	pb.RegisterVaultServer(s, &vault{})
 	log.Debugf("grpc server listening on: %d\n", port)
 	if err := s.Serve(lis); err != nil {

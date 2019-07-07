@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+var testPass []byte
+
 type Client struct {
 	c      pb.VaultClient
 	config string
@@ -24,7 +26,7 @@ type Client struct {
 func (c *Client) readConfig() string {
 	data, err := ioutil.ReadFile(c.config)
 	if err != nil {
-		log.Fatalf("unable to create %s: %v\n", c.config, err)
+		log.Fatalf("unable to read %s: %v\n", c.config, err)
 	}
 	return string(data)
 }
@@ -47,10 +49,18 @@ func (c *Client) getMetaContext() context.Context {
 }
 
 func (c *Client) readPasswordFromUser() []byte {
-	fmt.Printf("Password: ")
-	pass, err := gopass.GetPasswdMasked()
-	if err != nil {
-		log.Fatalf("unable to get password from user: %v\n", err)
+	var (
+		err  error
+		pass []byte
+	)
+	if len(testPass) != 0 {
+		pass = testPass
+	} else {
+		fmt.Printf("Password: ")
+		pass, err = gopass.GetPasswdMasked()
+		if err != nil {
+			log.Fatalf("unable to get password from user: %v\n", err)
+		}
 	}
 	random := cipher.RandomString(30)
 	salt := random[:len(random)/2]
@@ -63,7 +73,7 @@ func (c *Client) readPasswordFromUser() []byte {
 	return data
 }
 
-func (c *Client) GetPassword() {
+func (c *Client) GetPassword() string {
 	ctx := c.getMetaContext()
 	result, err := c.c.Get(ctx, &pb.Void{})
 	if err != nil {
@@ -76,7 +86,7 @@ func (c *Client) GetPassword() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Password:", string(password))
+	return string(password)
 }
 
 func (c *Client) SetPassword() {
@@ -88,12 +98,18 @@ func (c *Client) SetPassword() {
 	}
 }
 
-func New(port int, certFile, configFile string) *Client {
-	creds, err := credentials.NewClientTLSFromFile(certFile, "")
-	if err != nil {
-		log.Fatalf("unable to set tls: %v\n", err)
+func New(port int, configFile, certFile string) *Client {
+	var opt grpc.DialOption
+	if certFile != "" {
+		creds, err := credentials.NewClientTLSFromFile(certFile, "")
+		if err != nil {
+			log.Fatalf("unable to set tls: %v\n", err)
+		}
+		opt = grpc.WithTransportCredentials(creds)
+	} else {
+		opt = grpc.WithInsecure()
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), opt)
 	if err != nil {
 		log.Fatalf("did not connect: %v\n", err)
 	}

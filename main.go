@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/mitchellh/go-homedir"
@@ -48,7 +49,7 @@ func setConfig() {
 	)
 }
 func main() {
-	asClient := flag.Bool("client", false, "run in client mode")
+	asClient := flag.Bool("client", true, "run in client mode")
 	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
 	get := flag.Bool("get", false, "get data")
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
@@ -57,17 +58,17 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
 	setConfig()
+	if *asServer {
+		server.Start(port, certFile, keyFile)
+	}
 	if *asClient {
-		c := client.New(port, certFile, configFile)
+		c := client.New(port, configFile, certFile)
 		if *get {
-			c.GetPassword()
+			out := c.GetPassword()
+			fmt.Println(string(out))
 		}
 		if *set {
 			c.SetPassword()
 		}
-	}
-
-	if *asServer {
-		server.Start(port, certFile, keyFile)
 	}
 }
