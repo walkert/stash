@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var testPass []byte
+var TestPass []byte
 
 type Client struct {
 	c      pb.VaultClient
@@ -53,8 +53,8 @@ func (c *Client) readPasswordFromUser() []byte {
 		err  error
 		pass []byte
 	)
-	if len(testPass) != 0 {
-		pass = testPass
+	if len(TestPass) != 0 {
+		pass = TestPass
 	} else {
 		fmt.Printf("Password: ")
 		pass, err = gopass.GetPasswdMasked()
@@ -73,20 +73,20 @@ func (c *Client) readPasswordFromUser() []byte {
 	return data
 }
 
-func (c *Client) GetPassword() string {
+func (c *Client) GetPassword() (string, error) {
 	ctx := c.getMetaContext()
 	result, err := c.c.Get(ctx, &pb.Void{})
 	if err != nil {
-		log.Fatalf("unable to GET: %v\n", err)
+		return "", fmt.Errorf("unable to get password: %v\n", err)
 	}
 	configString := c.readConfig()
 	salt := configString[:len(configString)/2]
 	encPass := configString[len(configString)/2:]
 	password, err := cipher.DecryptBytes(result.GetPassword(), salt, encPass)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("error decrypting password: %v\n", err)
 	}
-	return string(password)
+	return string(password), nil
 }
 
 func (c *Client) SetPassword() {

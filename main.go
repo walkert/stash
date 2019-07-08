@@ -59,12 +59,13 @@ func main() {
 	flag.Parse()
 	setConfig()
 	if *asServer {
-		server.Start(port, certFile, keyFile)
+		s := server.New(port, certFile, keyFile)
+		s.Start()
 	}
 	if *asClient {
 		c := client.New(port, configFile, certFile)
 		if *get {
-			out := c.GetPassword()
+			out, _ := c.GetPassword()
 			fmt.Println(string(out))
 		}
 		if *set {

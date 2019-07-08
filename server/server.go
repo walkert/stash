@@ -42,6 +42,12 @@ func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) 
 	return &pb.Void{}, nil
 }
 
+type Server struct {
+	l    net.Listener
+	port int
+	s    *grpc.Server
+}
+
 func watchDog() {
 	timer := time.NewTicker(time.Second * 5)
 	for {
@@ -95,7 +101,7 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 	return handler(ctx, req)
 }
 
-func Start(port int, certFile, keyFile string) {
+func New(port int, certFile, keyFile string) *Server {
 	options := []grpc.ServerOption{grpc.UnaryInterceptor(AuthInterceptor)}
 	if certFile != "" && keyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
@@ -110,8 +116,16 @@ func Start(port int, certFile, keyFile string) {
 	}
 	s := grpc.NewServer(options...)
 	pb.RegisterVaultServer(s, &vault{})
-	log.Debugf("grpc server listening on: %d\n", port)
-	if err := s.Serve(lis); err != nil {
+	return &Server{lis, port, s}
+}
+
+func (s *Server) Start() {
+	log.Debugf("grpc server listening on: %d\n", s.port)
+	if err := s.s.Serve(s.l); err != nil {
 		log.Fatalf("unable to server: %v\n", err)
 	}
+}
+
+func (s *Server) Stop() {
+	s.s.Stop()
 }
