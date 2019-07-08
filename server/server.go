@@ -18,19 +18,21 @@ import (
 
 var (
 	auth            string
-	clientAuth      string
 	encPass         string
 	masterPassword  []byte
 	mux             sync.Mutex
 	salt            string
-	passwordSet     bool
 	watchDogRunning bool
 )
 
 type vault struct{}
 
 func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
-	return &pb.Payload{Password: decryptPass(), Auth: auth}, nil
+	decrypted, err := decryptPass()
+	if err != nil {
+		return &pb.Payload{}, err
+	}
+	return &pb.Payload{Password: decrypted, Auth: auth}, nil
 }
 
 func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) {
@@ -43,18 +45,18 @@ func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) 
 }
 
 type Server struct {
-	l    net.Listener
-	port int
-	s    *grpc.Server
+	clientAuth  string
+	l           net.Listener
+	passwordSet bool
+	port        int
+	s           *grpc.Server
 }
 
 func watchDog() {
 	timer := time.NewTicker(time.Second * 5)
 	for {
 		<-timer.C
-		current := decryptPass()
-		salt = cipher.RandomString(12)
-		encPass = cipher.RandomString(32)
+		current, _ := decryptPass()
 		encryptPass(current)
 	}
 }
@@ -62,6 +64,8 @@ func watchDog() {
 func encryptPass(password []byte) error {
 	mux.Lock()
 	defer mux.Unlock()
+	salt = cipher.RandomString(12)
+	encPass = cipher.RandomString(32)
 	data, err := cipher.EncryptBytes(password, salt, encPass)
 	if err != nil {
 		return err
@@ -70,17 +74,17 @@ func encryptPass(password []byte) error {
 	return nil
 }
 
-func decryptPass() []byte {
+func decryptPass() ([]byte, error) {
 	mux.Lock()
 	defer mux.Unlock()
 	data, err := cipher.DecryptBytes(masterPassword, salt, encPass)
 	if err != nil {
-		log.Fatalf("unable to decrypt password data: %v\n", err)
+		return []byte{}, fmt.Errorf("unable to decrypt password data: %v\n", err)
 	}
-	return data
+	return data, nil
 }
 
-func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, grpc.Errorf(codes.Unauthenticated, "missing context header")
@@ -89,41 +93,45 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
 	}
 	value := meta["auth"][0]
-	if passwordSet {
-		if value != clientAuth {
+	if s.passwordSet {
+		if value != s.clientAuth {
 			return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
 		}
 	}
 	if info.FullMethod == "/gateproto.Vault/Set" {
-		clientAuth = value
-		passwordSet = true
+		s.clientAuth = value
+		s.passwordSet = true
 	}
 	return handler(ctx, req)
 }
 
-func New(port int, certFile, keyFile string) *Server {
-	options := []grpc.ServerOption{grpc.UnaryInterceptor(AuthInterceptor)}
+func New(port int, certFile, keyFile string) (*Server, error) {
+	svr := &Server{port: port}
+	options := []grpc.ServerOption{grpc.UnaryInterceptor(svr.AuthInterceptor)}
 	if certFile != "" && keyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 		if err != nil {
-			log.Fatalf("unable to set tls: %v\n", err)
+			return &Server{}, fmt.Errorf("unable to set tls: %v", err)
 		}
 		options = append(options, grpc.Creds(creds))
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v\n", err)
+		return &Server{}, fmt.Errorf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer(options...)
 	pb.RegisterVaultServer(s, &vault{})
-	return &Server{lis, port, s}
+	svr.l = lis
+	svr.s = s
+	return svr, nil
 }
 
-func (s *Server) Start() {
+func (s *Server) Start() error {
 	log.Debugf("grpc server listening on: %d\n", s.port)
 	if err := s.s.Serve(s.l); err != nil {
-		log.Fatalf("unable to server: %v\n", err)
+		return fmt.Errorf("unable to server: %v", err)
 	}
+	return nil
 }
 
 func (s *Server) Stop() {

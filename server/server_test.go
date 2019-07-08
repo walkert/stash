@@ -10,20 +10,30 @@ import (
 )
 
 func TestServerSetGet(t *testing.T) {
-	clientAuth = ""
-	passwordSet = false
-	s := New(5002, "", "")
+	s, err := New(5002, "", "")
+	if err != nil {
+		t.Fatalf("problem creating server: %v", err)
+	}
 	go func() {
-		s.Start()
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("problem starting server: %v", err)
+		}
 	}()
 	file, err := ioutil.TempFile(os.TempDir(), "")
 	if err != nil {
 		t.Fatalf("unable to create temp file: %s\n", err)
 	}
 	defer os.Remove(file.Name())
-	c := client.New(5002, file.Name(), "")
+	c, err := client.New(5002, file.Name(), "")
+	if err != nil {
+		t.Fatalf("unexpected error while getting client: %v\n", err)
+	}
 	client.TestPass = []byte("test")
-	c.SetPassword()
+	err = c.SetPassword()
+	if err != nil {
+		t.Fatalf("unexpected error while setting password: %v\n", err)
+	}
 	pass, err := c.GetPassword()
 	s.Stop()
 	if err != nil {
@@ -35,11 +45,15 @@ func TestServerSetGet(t *testing.T) {
 }
 
 func TestServerBadAuth(t *testing.T) {
-	clientAuth = ""
-	passwordSet = false
-	s := New(5002, "", "")
+	s, err := New(5002, "", "")
+	if err != nil {
+		t.Fatalf("problem starting server: %v", err)
+	}
 	go func() {
-		s.Start()
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("problem starting server: %v", err)
+		}
 	}()
 	defer s.Stop()
 	file, err := ioutil.TempFile(os.TempDir(), "")
@@ -47,9 +61,15 @@ func TestServerBadAuth(t *testing.T) {
 		t.Fatalf("unable to create temp file: %s\n", err)
 	}
 	defer os.Remove(file.Name())
-	c := client.New(5002, file.Name(), "")
+	c, err := client.New(5002, file.Name(), "")
+	if err != nil {
+		t.Fatalf("unexpected error while getting client: %v\n", err)
+	}
 	client.TestPass = []byte("test")
-	c.SetPassword()
+	err = c.SetPassword()
+	if err != nil {
+		t.Fatalf("unexpected error while setting password: %v\n", err)
+	}
 	// mess with the data in the config file
 	file, err = os.Create(file.Name())
 	if err != nil {

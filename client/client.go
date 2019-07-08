@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/howeyc/gopass"
-	log "github.com/sirupsen/logrus"
 	"github.com/walkert/cipher"
 	pb "github.com/walkert/gatekeeper/gateproto"
 	"google.golang.org/grpc"
@@ -23,32 +22,36 @@ type Client struct {
 	config string
 }
 
-func (c *Client) readConfig() string {
+func (c *Client) readConfig() (string, error) {
 	data, err := ioutil.ReadFile(c.config)
 	if err != nil {
-		log.Fatalf("unable to read %s: %v\n", c.config, err)
+		return "", fmt.Errorf("unable to read %s: %v\n", c.config, err)
 	}
-	return string(data)
+	return string(data), nil
 }
 
-func (c *Client) writeConfig(data string) {
+func (c *Client) writeConfig(data string) error {
 	file, err := os.Create(c.config)
 	if err != nil {
-		log.Fatalf("unable to create %s: %v\n", c.config, err)
+		return fmt.Errorf("unable to create %s: %v\n", c.config, err)
 	}
 	defer file.Close()
 	file.WriteString(data)
+	return nil
 }
 
-func (c *Client) getMetaContext() context.Context {
-	data := c.readConfig()
+func (c *Client) getMetaContext() (context.Context, error) {
+	data, err := c.readConfig()
+	if err != nil {
+		return context.Background(), err
+	}
 	salt := data[:len(data)/2]
 	auth := base64.StdEncoding.EncodeToString([]byte(salt))
 	md := metadata.Pairs("auth", auth)
-	return metadata.NewOutgoingContext(context.Background(), md)
+	return metadata.NewOutgoingContext(context.Background(), md), nil
 }
 
-func (c *Client) readPasswordFromUser() []byte {
+func (c *Client) readPasswordFromUser() ([]byte, error) {
 	var (
 		err  error
 		pass []byte
@@ -59,7 +62,7 @@ func (c *Client) readPasswordFromUser() []byte {
 		fmt.Printf("Password: ")
 		pass, err = gopass.GetPasswdMasked()
 		if err != nil {
-			log.Fatalf("unable to get password from user: %v\n", err)
+			return []byte{}, fmt.Errorf("unable to get password from user: %v", err)
 		}
 	}
 	random := cipher.RandomString(30)
@@ -67,19 +70,28 @@ func (c *Client) readPasswordFromUser() []byte {
 	encPass := random[len(random)/2:]
 	data, err := cipher.EncryptString(string(pass), salt, encPass)
 	if err != nil {
-		log.Fatalf("unable to encrypt password: %v\n", err)
+		return []byte{}, fmt.Errorf("unable to encrypt password: %v", err)
 	}
-	c.writeConfig(random)
-	return data
+	err = c.writeConfig(random)
+	if err != nil {
+		return []byte{}, err
+	}
+	return data, nil
 }
 
 func (c *Client) GetPassword() (string, error) {
-	ctx := c.getMetaContext()
+	ctx, err := c.getMetaContext()
+	if err != nil {
+		return "", err
+	}
 	result, err := c.c.Get(ctx, &pb.Void{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get password: %v\n", err)
 	}
-	configString := c.readConfig()
+	configString, err := c.readConfig()
+	if err != nil {
+		return "", err
+	}
 	salt := configString[:len(configString)/2]
 	encPass := configString[len(configString)/2:]
 	password, err := cipher.DecryptBytes(result.GetPassword(), salt, encPass)
@@ -89,21 +101,28 @@ func (c *Client) GetPassword() (string, error) {
 	return string(password), nil
 }
 
-func (c *Client) SetPassword() {
-	data := c.readPasswordFromUser()
-	ctx := c.getMetaContext()
-	_, err := c.c.Set(ctx, &pb.Payload{Password: data, Auth: ""})
+func (c *Client) SetPassword() error {
+	data, err := c.readPasswordFromUser()
 	if err != nil {
-		log.Fatalf("unable to set password: %v\n", err)
+		return err
 	}
+	ctx, err := c.getMetaContext()
+	if err != nil {
+		return err
+	}
+	_, err = c.c.Set(ctx, &pb.Payload{Password: data, Auth: ""})
+	if err != nil {
+		return fmt.Errorf("unable to set password: %v", err)
+	}
+	return nil
 }
 
-func New(port int, configFile, certFile string) *Client {
+func New(port int, configFile, certFile string) (*Client, error) {
 	var opt grpc.DialOption
 	if certFile != "" {
 		creds, err := credentials.NewClientTLSFromFile(certFile, "")
 		if err != nil {
-			log.Fatalf("unable to set tls: %v\n", err)
+			return &Client{}, fmt.Errorf("unable to set tls: %v", err)
 		}
 		opt = grpc.WithTransportCredentials(creds)
 	} else {
@@ -111,7 +130,7 @@ func New(port int, configFile, certFile string) *Client {
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), opt)
 	if err != nil {
-		log.Fatalf("did not connect: %v\n", err)
+		return &Client{}, fmt.Errorf("coult not connect to server: %v\n", err)
 	}
-	return &Client{c: pb.NewVaultClient(conn), config: configFile}
+	return &Client{c: pb.NewVaultClient(conn), config: configFile}, nil
 }

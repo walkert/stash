@@ -9,9 +9,15 @@ import (
 )
 
 func TestSetGet(t *testing.T) {
-	s := server.New(5001, "", "")
+	s, err := server.New(5001, "", "")
+	if err != nil {
+		t.Fatalf("problem starting server: %v", err)
+	}
 	go func() {
-		s.Start()
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("problem starting server: %v", err)
+		}
 	}()
 	defer s.Stop()
 	file, err := ioutil.TempFile(os.TempDir(), "")
@@ -19,9 +25,15 @@ func TestSetGet(t *testing.T) {
 		t.Fatalf("unable to create temp file: %s\n", err)
 	}
 	defer os.Remove(file.Name())
-	c := New(5001, file.Name(), "")
+	c, err := New(5001, file.Name(), "")
+	if err != nil {
+		t.Fatalf("unexpected error while getting client: %v\n", err)
+	}
 	TestPass = []byte("test")
-	c.SetPassword()
+	err = c.SetPassword()
+	if err != nil {
+		t.Fatalf("unexpected error while setting password: %v\n", err)
+	}
 	pass, err := c.GetPassword()
 	if err != nil {
 		t.Fatalf("unexpected error while getting password: %v\n", err)

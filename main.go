@@ -59,17 +59,29 @@ func main() {
 	flag.Parse()
 	setConfig()
 	if *asServer {
-		s := server.New(port, certFile, keyFile)
+		s, err := server.New(port, certFile, keyFile)
+		if err != nil {
+			log.Fatalf("Can't start server: %v\n", err)
+		}
 		s.Start()
 	}
 	if *asClient {
-		c := client.New(port, configFile, certFile)
+		c, err := client.New(port, configFile, certFile)
+		if err != nil {
+			log.Fatalf("ERROR: %v\n", err)
+		}
 		if *get {
-			out, _ := c.GetPassword()
+			out, err := c.GetPassword()
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 			fmt.Println(string(out))
 		}
 		if *set {
-			c.SetPassword()
+			err := c.SetPassword()
+			if err != nil {
+				log.Fatalf("ERROR: %v\n", err)
+			}
 		}
 	}
 }
