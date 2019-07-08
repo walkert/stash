@@ -8,9 +8,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.3
-	github.com/walkert/cipher v1.1.1
+	github.com/walkert/cipher v0.0.0-20190708205741-762fe6349757
 	github.com/walkert/go-evp v0.0.0-20170514035756-ffd5184bbd4e
 	google.golang.org/grpc v1.22.0
 )
-
-replace github.com/walkert/cipher => /Users/walkert/GIT/walkert/cipher

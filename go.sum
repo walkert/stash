@@ -24,6 +24,8 @@ github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnIn
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
+github.com/walkert/cipher v0.0.0-20190708205741-762fe6349757 h1:aQU2Q2hnVQlDqDCFR6hkPFfU+5kRTL2a8ViqQqrnHFE=
+github.com/walkert/cipher v0.0.0-20190708205741-762fe6349757/go.mod h1:1peK4Bnf8jD3jEHklnVXX6KRSibLw/6Ea5Q3iD9rUeg=
 github.com/walkert/go-evp v0.0.0-20170514035756-ffd5184bbd4e h1:EPYRkeFGIets0cI3OwCGrohsMP+5VDGYgG66Yfbffg8=
 github.com/walkert/go-evp v0.0.0-20170514035756-ffd5184bbd4e/go.mod h1:vqUHreXQjP6nu/ZToPGh9IIYU31BU53CPEGyNMq+UwE=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 h1:VklqNMn3ovrHsnt90PveolxSbWFaJdECFbxSq0Mqo2M=
