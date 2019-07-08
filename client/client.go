@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/howeyc/gopass"
 	"github.com/walkert/cipher"
@@ -40,13 +41,25 @@ func (c *Client) writeConfig(data string) error {
 	return nil
 }
 
-func (c *Client) getMetaContext() (context.Context, error) {
+func (c *Client) authDetails() (auth, salt, encPass string, err error) {
 	data, err := c.readConfig()
+	if err != nil {
+		return "", "", "", err
+	}
+	spl := strings.Split(string(data), ":")
+	auth = spl[0]
+	saltPass := spl[1]
+	salt = saltPass[:len(saltPass)/2]
+	encPass = saltPass[len(saltPass)/2:]
+	return auth, salt, encPass, nil
+}
+
+func (c *Client) getMetaContext() (context.Context, error) {
+	auth, _, _, err := c.authDetails()
 	if err != nil {
 		return context.Background(), err
 	}
-	salt := data[:len(data)/2]
-	auth := base64.StdEncoding.EncodeToString([]byte(salt))
+	auth = base64.StdEncoding.EncodeToString([]byte(auth))
 	md := metadata.Pairs("auth", auth)
 	return metadata.NewOutgoingContext(context.Background(), md), nil
 }
@@ -65,6 +78,7 @@ func (c *Client) readPasswordFromUser() ([]byte, error) {
 			return []byte{}, fmt.Errorf("unable to get password from user: %v", err)
 		}
 	}
+	auth := cipher.RandomString(10)
 	random := cipher.RandomString(30)
 	salt := random[:len(random)/2]
 	encPass := random[len(random)/2:]
@@ -72,7 +86,7 @@ func (c *Client) readPasswordFromUser() ([]byte, error) {
 	if err != nil {
 		return []byte{}, fmt.Errorf("unable to encrypt password: %v", err)
 	}
-	err = c.writeConfig(random)
+	err = c.writeConfig(fmt.Sprintf("%s:%s", auth, random))
 	if err != nil {
 		return []byte{}, err
 	}
@@ -88,12 +102,10 @@ func (c *Client) GetPassword() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to get password: %v\n", err)
 	}
-	configString, err := c.readConfig()
+	_, salt, encPass, err := c.authDetails()
 	if err != nil {
 		return "", err
 	}
-	salt := configString[:len(configString)/2]
-	encPass := configString[len(configString)/2:]
 	password, err := cipher.DecryptBytes(result.GetPassword(), salt, encPass)
 	if err != nil {
 		return "", fmt.Errorf("error decrypting password: %v\n", err)

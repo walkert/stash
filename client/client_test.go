@@ -1,8 +1,10 @@
 package client
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/walkert/gatekeeper/server"
@@ -40,5 +42,21 @@ func TestSetGet(t *testing.T) {
 	}
 	if pass != "test" {
 		t.Fatalf("Wanted: 'test', got: %s\n", pass)
+	}
+	current, _ := ioutil.ReadFile(file.Name())
+	// break the salt
+	spl := strings.Split(string(current), ":")
+	file, err = os.Create(file.Name())
+	if err != nil {
+		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
+	}
+	file.WriteString(fmt.Sprintf("%s:badSalt", spl[0]))
+	file.Close()
+	_, err = c.GetPassword()
+	if err == nil {
+		t.Fatalf("expected error but got none")
+	}
+	if !strings.Contains(err.Error(), "data could not be decrypted") {
+		t.Fatalf("Unexpected error string: %s\n", err.Error())
 	}
 }

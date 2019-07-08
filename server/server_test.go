@@ -44,7 +44,7 @@ func TestServerSetGet(t *testing.T) {
 	}
 }
 
-func TestServerBadAuth(t *testing.T) {
+func TestServerVarious(t *testing.T) {
 	s, err := New(5002, "", "")
 	if err != nil {
 		t.Fatalf("problem starting server: %v", err)
@@ -70,13 +70,13 @@ func TestServerBadAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while setting password: %v\n", err)
 	}
-	// mess with the data in the config file
+	// break the auth string
 	file, err = os.Create(file.Name())
 	if err != nil {
 		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
 	}
-	defer file.Close()
-	file.WriteString("bad")
+	file.WriteString("bad:auth")
+	file.Close()
 	_, err = c.GetPassword()
 	if err == nil {
 		t.Fatalf("expected error but got none")

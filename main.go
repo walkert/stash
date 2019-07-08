@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	port     = 2002
 	certName = ".gkeeper.cert.pem"
 	keyName  = ".gkeeper.key.pem"
 	confName = ".gkeeper"
@@ -24,6 +23,7 @@ var (
 	clientAuth string
 	configFile string
 	keyFile    string
+	port       int
 	verbose    bool
 )
 
@@ -48,12 +48,14 @@ func setConfig() {
 	},
 	)
 }
+
 func main() {
 	asClient := flag.Bool("client", true, "run in client mode")
+	asServer := flag.Bool("server", false, "run in server mode")
 	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
 	get := flag.Bool("get", false, "get data")
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
-	asServer := flag.Bool("server", false, "run in server mode")
+	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port (default 2002)")
 	set := flag.Bool("set", false, "set the password")
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
