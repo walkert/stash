@@ -96,9 +96,11 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
 	}
 	value := meta["auth"][0]
-	if s.passwordSet {
-		if value != s.clientAuth {
-			return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
+	if info.FullMethod == "/gateproto.Vault/Get" {
+		if s.passwordSet {
+			if value != s.clientAuth {
+				return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
+			}
 		}
 	}
 	if info.FullMethod == "/gateproto.Vault/Set" {
