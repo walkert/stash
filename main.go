@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path"
+	"syscall"
 
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
@@ -51,6 +54,7 @@ func setConfig() {
 
 func main() {
 	asClient := flag.Bool("client", true, "run in client mode")
+	daemon := flag.Bool("daemon", false, "run the server as a daemon")
 	asServer := flag.Bool("server", false, "run in server mode")
 	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
 	get := flag.Bool("get", false, "get data")
@@ -60,7 +64,18 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
 	setConfig()
+	prog := path.Base(os.Args[0])
 	if *asServer {
+		if *daemon {
+			binary, _ := exec.LookPath(os.Args[0])
+			cmdEnv := os.Environ()
+			pid, err := syscall.ForkExec(binary, []string{binary, "--server"}, &syscall.ProcAttr{Env: cmdEnv})
+			if err != nil {
+				log.Fatalf("ERROR: unable to start %s in daemon mode: %v\n", prog, err)
+			}
+			fmt.Printf("Started %s in daemon mode with pid %d\n", prog, pid)
+			os.Exit(0)
+		}
 		s, err := server.New(port, certFile, keyFile)
 		if err != nil {
 			log.Fatalf("Can't start server: %v\n", err)
