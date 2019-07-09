@@ -28,6 +28,9 @@ var (
 type vault struct{}
 
 func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
+	if len(masterPassword) == 0 {
+		return &pb.Payload{}, grpc.Errorf(codes.NotFound, "password not set")
+	}
 	decrypted, err := decryptPass()
 	if err != nil {
 		return &pb.Payload{}, err

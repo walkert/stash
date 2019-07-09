@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -20,6 +21,7 @@ func TestServerSetGet(t *testing.T) {
 			t.Fatalf("problem starting server: %v", err)
 		}
 	}()
+	defer s.Stop()
 	file, err := ioutil.TempFile(os.TempDir(), "")
 	if err != nil {
 		t.Fatalf("unable to create temp file: %s\n", err)
@@ -29,13 +31,25 @@ func TestServerSetGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while getting client: %v\n", err)
 	}
+	file, err = os.Create(file.Name())
+	if err != nil {
+		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
+	}
+	file.WriteString(fmt.Sprintf("random:data"))
+	file.Close()
+	_, err = c.GetPassword()
+	if err == nil {
+		t.Fatalf("expected error getting empty password but got none")
+	}
+	if !strings.Contains(err.Error(), "password not set") {
+		t.Fatalf("unexpected error while getting empty password")
+	}
 	client.TestPass = []byte("test")
 	err = c.SetPassword()
 	if err != nil {
 		t.Fatalf("unexpected error while setting password: %v\n", err)
 	}
 	pass, err := c.GetPassword()
-	s.Stop()
 	if err != nil {
 		t.Fatalf("unexpected error while getting password: %v\n", err)
 	}
