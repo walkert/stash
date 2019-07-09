@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	auth            string
 	encPass         string
 	masterPassword  []byte
 	mux             sync.Mutex
@@ -35,7 +34,7 @@ func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
 	if err != nil {
 		return &pb.Payload{}, err
 	}
-	return &pb.Payload{Password: decrypted, Auth: auth}, nil
+	return &pb.Payload{Password: decrypted}, nil
 }
 
 func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) {

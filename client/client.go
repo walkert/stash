@@ -122,7 +122,7 @@ func (c *Client) SetPassword() error {
 	if err != nil {
 		return err
 	}
-	_, err = c.c.Set(ctx, &pb.Payload{Password: data, Auth: ""})
+	_, err = c.c.Set(ctx, &pb.Payload{Password: data})
 	if err != nil {
 		return fmt.Errorf("unable to set password: %v", err)
 	}
