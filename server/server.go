@@ -131,6 +131,17 @@ func New(port int, certFile, keyFile string) (*Server, error) {
 }
 
 func (s *Server) Start() error {
+	// Drop the password every 12 hours
+	go func() {
+		timer := time.NewTicker(time.Hour * 12)
+		for {
+			<-timer.C
+			s.clientAuth = ""
+			s.passwordSet = false
+			masterPassword = nil
+		}
+	}()
+
 	log.Debugf("grpc server listening on: %d\n", s.port)
 	if err := s.s.Serve(s.l); err != nil {
 		return fmt.Errorf("unable to server: %v", err)
