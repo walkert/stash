@@ -9,7 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/walkert/cipher"
-	pb "github.com/walkert/gatekeeper/gateproto"
+	pb "github.com/walkert/stash/stashproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -95,14 +95,14 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
 	}
 	value := meta["auth"][0]
-	if info.FullMethod == "/gateproto.Vault/Get" {
+	if info.FullMethod == "/stashproto.Stash/Get" {
 		if s.passwordSet {
 			if value != s.clientAuth {
 				return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token")
 			}
 		}
 	}
-	if info.FullMethod == "/gateproto.Vault/Set" {
+	if info.FullMethod == "/stashproto.Stash/Set" {
 		s.clientAuth = value
 		s.passwordSet = true
 	}
@@ -124,7 +124,7 @@ func New(port int, certFile, keyFile string) (*Server, error) {
 		return &Server{}, fmt.Errorf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer(options...)
-	pb.RegisterVaultServer(s, &vault{})
+	pb.RegisterStashServer(s, &vault{})
 	svr.l = lis
 	svr.s = s
 	return svr, nil

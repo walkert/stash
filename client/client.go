@@ -10,7 +10,7 @@ import (
 
 	"github.com/howeyc/gopass"
 	"github.com/walkert/cipher"
-	pb "github.com/walkert/gatekeeper/gateproto"
+	pb "github.com/walkert/stash/stashproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -19,7 +19,7 @@ import (
 var TestPass []byte
 
 type Client struct {
-	c      pb.VaultClient
+	c      pb.StashClient
 	config string
 }
 
@@ -144,5 +144,5 @@ func New(port int, configFile, certFile string) (*Client, error) {
 	if err != nil {
 		return &Client{}, fmt.Errorf("coult not connect to server: %v\n", err)
 	}
-	return &Client{c: pb.NewVaultClient(conn), config: configFile}, nil
+	return &Client{c: pb.NewStashClient(conn), config: configFile}, nil
 }

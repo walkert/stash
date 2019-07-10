@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/walkert/gatekeeper/client"
+	"github.com/walkert/stash/client"
 )
 
 func TestServerSetGet(t *testing.T) {

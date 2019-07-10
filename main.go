@@ -10,14 +10,14 @@ import (
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"github.com/walkert/gatekeeper/client"
-	"github.com/walkert/gatekeeper/server"
+	"github.com/walkert/stash/client"
+	"github.com/walkert/stash/server"
 )
 
 const (
-	certName = ".gkeeper.cert.pem"
-	keyName  = ".gkeeper.key.pem"
-	confName = ".gkeeper"
+	certName = ".stash.cert.pem"
+	keyName  = ".stash.key.pem"
+	confName = ".stash"
 )
 
 var (
