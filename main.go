@@ -58,13 +58,18 @@ func main() {
 	asServer := flag.Bool("server", false, "run in server mode")
 	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
 	get := flag.Bool("get", false, "get data")
+	help := flag.Bool("help", false, "show help")
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
-	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port (default 2002)")
+	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port")
 	set := flag.Bool("set", false, "set the password")
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
 	setConfig()
 	prog := path.Base(os.Args[0])
+	if *help {
+		flag.Usage()
+		os.Exit(0)
+	}
 	if *asServer {
 		if *daemon {
 			binary, _ := exec.LookPath(os.Args[0])
