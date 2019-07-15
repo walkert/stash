@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"syscall"
 
+	"github.com/mattn/go-isatty"
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -52,6 +54,17 @@ func setConfig() {
 	)
 }
 
+func obscure(s string) {
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		fmt.Println(s)
+		return
+	}
+	fg, _ := exec.Command("tput", "setaf", "7").Output()
+	bg, _ := exec.Command("tput", "setab", "7").Output()
+	reset, _ := exec.Command("tput", "sgr", "0").Output()
+	fmt.Printf("%s%s%s%s\n", string(fg), string(bg), s, string(reset))
+}
+
 func main() {
 	asClient := flag.Bool("client", true, "run in client mode")
 	daemon := flag.Bool("daemon", false, "run the server as a daemon")
@@ -62,6 +75,7 @@ func main() {
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
 	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port")
 	set := flag.Bool("set", false, "set the password")
+	validate := flag.Bool("validate", false, "check whether a password is currently set")
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
 	setConfig()
@@ -95,9 +109,15 @@ func main() {
 		if *get {
 			out, err := c.GetPassword()
 			if err != nil {
+				if *validate {
+					if strings.Contains(err.Error(), "not set") {
+						fmt.Println("Password not set")
+						os.Exit(99)
+					}
+				}
 				log.Fatalf("ERROR: %v\n", err)
 			}
-			fmt.Println(string(out))
+			obscure(out)
 		}
 		if *set {
 			err := c.SetPassword()
