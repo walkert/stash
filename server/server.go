@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 )
 
 var (
@@ -27,6 +28,9 @@ var (
 type vault struct{}
 
 func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
+	if p, ok := peer.FromContext(ctx); ok {
+		log.Debugf("Recevied GET request from %s\n", p.Addr)
+	}
 	if len(masterPassword) == 0 {
 		return &pb.Payload{}, grpc.Errorf(codes.NotFound, "password not set")
 	}
@@ -38,6 +42,9 @@ func (v *vault) Get(ctx context.Context, void *pb.Void) (*pb.Payload, error) {
 }
 
 func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) {
+	if p, ok := peer.FromContext(ctx); ok {
+		log.Debugf("Recevied SET request from %s\n", p.Addr)
+	}
 	encryptPass(payload.GetPassword())
 	if !watchDogRunning {
 		go watchDog()
@@ -57,7 +64,12 @@ type Server struct {
 func watchDog() {
 	timer := time.NewTicker(time.Second * 5)
 	for {
-		<-timer.C
+		now := <-timer.C
+		// Stop the watchdog when there's no longer a password set
+		if len(masterPassword) == 0 {
+			log.Debug("Stopping the watchdog at", now)
+			return
+		}
 		current, _ := decryptPass()
 		encryptPass(current)
 	}
@@ -135,7 +147,8 @@ func (s *Server) Start() error {
 	go func() {
 		timer := time.NewTicker(time.Hour * 12)
 		for {
-			<-timer.C
+			now := <-timer.C
+			log.Debugln("Dropping the password at", now)
 			s.clientAuth = ""
 			s.passwordSet = false
 			masterPassword = nil
