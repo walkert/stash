@@ -27,6 +27,7 @@ var (
 	certFile   string
 	clientAuth string
 	configFile string
+	expiration int
 	keyFile    string
 	port       int
 	verbose    bool
@@ -70,6 +71,7 @@ func main() {
 	daemon := flag.Bool("daemon", false, "run the server as a daemon")
 	asServer := flag.Bool("server", false, "run in server mode")
 	flag.StringVar(&certFile, "cert-file", "", "the TLS certificate file to use")
+	flag.IntVar(&expiration, "expiration", 12, "The amount of time in `hours` after which the stash should expire")
 	get := flag.Bool("get", false, "get data")
 	help := flag.Bool("help", false, "show help")
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
@@ -87,15 +89,22 @@ func main() {
 	if *asServer {
 		if *daemon {
 			binary, _ := exec.LookPath(os.Args[0])
+			args := []string{binary}
+			for _, arg := range os.Args[1:] {
+				if arg == "--daemon" {
+					continue
+				}
+				args = append(args, arg)
+			}
 			cmdEnv := os.Environ()
-			pid, err := syscall.ForkExec(binary, []string{binary, "--server"}, &syscall.ProcAttr{Env: cmdEnv})
+			pid, err := syscall.ForkExec(binary, args, &syscall.ProcAttr{Env: cmdEnv})
 			if err != nil {
 				log.Fatalf("ERROR: unable to start %s in daemon mode: %v\n", prog, err)
 			}
 			fmt.Printf("Started %s in daemon mode with pid %d\n", prog, pid)
 			os.Exit(0)
 		}
-		s, err := server.New(port, certFile, keyFile)
+		s, err := server.New(port, certFile, keyFile, expiration)
 		if err != nil {
 			log.Fatalf("Can't start server: %v\n", err)
 		}

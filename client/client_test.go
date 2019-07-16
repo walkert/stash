@@ -11,7 +11,7 @@ import (
 )
 
 func TestSetGet(t *testing.T) {
-	s, err := server.New(5001, "", "")
+	s, err := server.New(5001, "", "", 0)
 	if err != nil {
 		t.Fatalf("problem starting server: %v", err)
 	}

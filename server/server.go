@@ -56,6 +56,7 @@ func (v *vault) Set(ctx context.Context, payload *pb.Payload) (*pb.Void, error) 
 type Server struct {
 	clientAuth  string
 	l           net.Listener
+	expiration  time.Duration
 	passwordSet bool
 	port        int
 	s           *grpc.Server
@@ -121,8 +122,8 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 	return handler(ctx, req)
 }
 
-func New(port int, certFile, keyFile string) (*Server, error) {
-	svr := &Server{port: port}
+func New(port int, certFile, keyFile string, expiration int) (*Server, error) {
+	svr := &Server{port: port, expiration: time.Hour * time.Duration(expiration)}
 	options := []grpc.ServerOption{grpc.UnaryInterceptor(svr.AuthInterceptor)}
 	if certFile != "" && keyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
@@ -143,18 +144,18 @@ func New(port int, certFile, keyFile string) (*Server, error) {
 }
 
 func (s *Server) Start() error {
-	// Drop the password every 12 hours
-	go func() {
-		timer := time.NewTicker(time.Hour * 12)
-		for {
-			now := <-timer.C
-			log.Debugln("Dropping the password at", now)
-			s.clientAuth = ""
-			s.passwordSet = false
-			masterPassword = nil
-		}
-	}()
-
+	if s.expiration > 0 {
+		go func() {
+			timer := time.NewTicker(s.expiration)
+			for {
+				now := <-timer.C
+				log.Debugln("Dropping the password at", now)
+				s.clientAuth = ""
+				s.passwordSet = false
+				masterPassword = nil
+			}
+		}()
+	}
 	log.Debugf("grpc server listening on: %d\n", s.port)
 	if err := s.s.Serve(s.l); err != nil {
 		return fmt.Errorf("unable to server: %v", err)
