@@ -57,6 +57,7 @@ type Server struct {
 	clientAuth  string
 	l           net.Listener
 	expiration  time.Duration
+	host        string
 	passwordSet bool
 	port        int
 	s           *grpc.Server
@@ -122,8 +123,8 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 	return handler(ctx, req)
 }
 
-func New(port int, certFile, keyFile string, expiration int) (*Server, error) {
-	svr := &Server{port: port, expiration: time.Hour * time.Duration(expiration)}
+func New(host string, port int, certFile, keyFile string, expiration int) (*Server, error) {
+	svr := &Server{host: host, port: port, expiration: time.Hour * time.Duration(expiration)}
 	options := []grpc.ServerOption{grpc.UnaryInterceptor(svr.AuthInterceptor)}
 	if certFile != "" && keyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
@@ -132,7 +133,7 @@ func New(port int, certFile, keyFile string, expiration int) (*Server, error) {
 		}
 		options = append(options, grpc.Creds(creds))
 	}
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return &Server{}, fmt.Errorf("failed to listen: %v", err)
 	}
@@ -156,7 +157,7 @@ func (s *Server) Start() error {
 			}
 		}()
 	}
-	log.Debugf("grpc server listening on: %d\n", s.port)
+	log.Debugf("grpc server listening on: %s:%d\n", s.host, s.port)
 	if err := s.s.Serve(s.l); err != nil {
 		return fmt.Errorf("unable to server: %v", err)
 	}
