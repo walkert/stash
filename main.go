@@ -28,6 +28,7 @@ var (
 	clientAuth string
 	configFile string
 	expiration int
+	host       string
 	keyFile    string
 	port       int
 	verbose    bool
@@ -74,6 +75,7 @@ func main() {
 	flag.IntVar(&expiration, "expiration", 12, "The amount of time in `hours` after which the stash should expire")
 	get := flag.Bool("get", false, "get data")
 	help := flag.Bool("help", false, "show help")
+	flag.StringVar(&host, "host", "localhost", "the hostname to listen on")
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
 	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port")
 	set := flag.Bool("set", false, "set the password")
@@ -104,7 +106,7 @@ func main() {
 			fmt.Printf("Started %s in daemon mode with pid %d\n", prog, pid)
 			os.Exit(0)
 		}
-		s, err := server.New(port, certFile, keyFile, expiration)
+		s, err := server.New(host, port, certFile, keyFile, expiration)
 		if err != nil {
 			log.Fatalf("Can't start server: %v\n", err)
 		}
