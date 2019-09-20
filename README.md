@@ -11,15 +11,15 @@ To install the tool using `Go` like so:
 
 ## Details
 
-I wrote `stash` as a purely localhost solution for password vault storage. That being said, it is intended to be secure enough for both local and remote use (where the client/server are separated across the network).
+I wrote `stash` as a purely localhost solution for password vault storage. That being said, it is intended to be secure enough for both local and remote use (where the client/server are separated across the network). When using `stash` locally on a Mac with Touch ID, you can specify the `--touchid` option which will cause the server process to attempt [LocalAuthentication](https://developer.apple.com/documentation/localauthentication).
 
 ### Server mode
 
-`stash` operates as both a server and a client. When in server mode, it will start a TLS-enabled gRPC server that is capable of storing and retrieving a string (typically a password). When a client sets a password for the first time, it sends through an authentication token which all future `get` operations must send in order to communicate with the server. The server encrypts the password using a randomly generated salt and password and will then continue to re-encrypt the data every five seconds.
+`stash` operates as both a server and a client. When in server mode, it will start a TLS-enabled gRPC server that is capable of storing and retrieving a string (typically a password). When a client sets a password for the first time, it sends through an authentication token which all future `get` operations must send in order to communicate with the server. The server encrypts the password using a randomly generated salt and password and will then continue to re-encrypt the data every five seconds. If the `--touchid` option is used, the server will additionally authenticate access via LocalAuthentication when running on `localhost`.
 
 ### Client mode
 
-When `stash` sets a password for the first time, it will encrypt it locally with a random salt and password before sending it to the server. It will then store the salt, password and a randomly generated authentication token locally in an obfuscated string. When getting a password, the client will read the locally stored token and use it to authenticate with the server before decrypting the received string with the locally stored salt/password.
+When `stash` sets a password for the first time, it will encrypt it locally with a random salt and password before sending it to the server. It will then store the salt, password and a randomly generated authentication token locally in an obfuscated string. When getting a password, the client will read the locally stored token and use it to authenticate with the server before decrypting the received string with the locally stored salt/password. If the server is running with the `--touchid` option, you will be prompted for additional authentication.
 
 ## Setup
 

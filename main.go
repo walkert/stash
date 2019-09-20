@@ -79,6 +79,7 @@ func main() {
 	flag.StringVar(&keyFile, "key-file", "", "the TLS key file to use")
 	flag.IntVar(&port, "port", 2002, "The daemon will listen on this local port")
 	set := flag.Bool("set", false, "set the password")
+	touchID := flag.Bool("touchid", false, "Use Touch ID for additional server-side authentication")
 	validate := flag.Bool("validate", false, "check whether a password is currently set")
 	flag.BoolVar(&verbose, "verbose", false, "enable debugging")
 	flag.Parse()
@@ -106,7 +107,7 @@ func main() {
 			fmt.Printf("Started %s in daemon mode with pid %d\n", prog, pid)
 			os.Exit(0)
 		}
-		s, err := server.New(host, port, certFile, keyFile, expiration)
+		s, err := server.New(host, port, certFile, keyFile, expiration, server.WithTouchID(*touchID))
 		if err != nil {
 			log.Fatalf("Can't start server: %v\n", err)
 		}
