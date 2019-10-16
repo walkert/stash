@@ -11,7 +11,7 @@ import (
 )
 
 func TestServerSetGet(t *testing.T) {
-	s, err := New(5002, "", "", 0)
+	s, err := New("localhost", 5002, "", "", 0)
 	if err != nil {
 		t.Fatalf("problem creating server: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestServerSetGet(t *testing.T) {
 }
 
 func TestServerVarious(t *testing.T) {
-	s, err := New(5002, "", "", 0)
+	s, err := New("localhost", 5002, "", "", 0)
 	if err != nil {
 		t.Fatalf("problem starting server: %v", err)
 	}
