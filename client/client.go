@@ -49,7 +49,7 @@ func (c *Client) authDetails() (auth, salt, encPass string, err error) {
 	spl := strings.Split(string(data), ":")
 	auth = spl[0]
 	saltPass := spl[1]
-	salt = saltPass[:len(saltPass)/2]
+	salt = saltPass[:len(saltPass)/2][:8]
 	encPass = saltPass[len(saltPass)/2:]
 	return auth, salt, encPass, nil
 }
@@ -80,7 +80,7 @@ func (c *Client) readPasswordFromUser() ([]byte, error) {
 	}
 	auth := cipher.RandomString(10)
 	random := cipher.RandomString(30)
-	salt := random[:len(random)/2]
+	salt := random[:len(random)/2][:8]
 	encPass := random[len(random)/2:]
 	data, err := cipher.EncryptString(string(pass), salt, encPass)
 	if err != nil {

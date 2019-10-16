@@ -35,7 +35,7 @@ func TestServerSetGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
 	}
-	file.WriteString(fmt.Sprintf("random:data"))
+	file.WriteString(fmt.Sprintf("random:saltandpasswordstring"))
 	file.Close()
 	_, err = c.GetPassword()
 	if err == nil {
@@ -89,7 +89,7 @@ func TestServerVarious(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
 	}
-	file.WriteString("bad:auth")
+	file.WriteString("bad:saltandpasswordstring")
 	file.Close()
 	_, err = c.GetPassword()
 	if err == nil {

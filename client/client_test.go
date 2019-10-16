@@ -50,7 +50,7 @@ func TestSetGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create %s: %v\n", file.Name(), err)
 	}
-	file.WriteString(fmt.Sprintf("%s:badSalt", spl[0]))
+	file.WriteString(fmt.Sprintf("%s:badSaltandpasswordstring", spl[0]))
 	file.Close()
 	_, err = c.GetPassword()
 	if err == nil {
