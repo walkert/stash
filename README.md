@@ -25,10 +25,28 @@ When `stash` sets a password for the first time, it will encrypt it locally with
 
 Since `stash` uses TLS by default, you will need to generate an SSL certificate and key file. Both will be used by the server while the client will just need to use the certificate.
 
-To generate the keypair you can run the following command (note this assumes you're running the server listening on localhost):
+To generate the keypair you'll first need to create a SAN config file that looks like this:
 
 ```shell
-$ openssl req -x509 -newkey rsa:4096 -keyout ~/.stash.key.pem -out ~/.stash.cert.pem -days 365 -nodes -subj '/CN=localhost'
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+CN = SomeCompany
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = localhost
+```
+
+Next, run the following command (note this assumes you're running the server listening on localhost):
+
+```shell
+$ openssl req -x509 -newkey rsa:4096 -keyout ~/.stash.key.pem -out ~/.stash.cert.pem -days 365 -nodes -subj '/CN=localhost' -config stash.san
+
 ```
 
 ## Starting the server
