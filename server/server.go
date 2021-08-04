@@ -80,7 +80,7 @@ func watchDog() {
 func encryptPass(password []byte) error {
 	mux.Lock()
 	defer mux.Unlock()
-	salt = cipher.RandomString(12)
+	salt = cipher.RandomString(8)
 	encPass = cipher.RandomString(32)
 	data, err := cipher.EncryptBytes(password, salt, encPass)
 	if err != nil {
